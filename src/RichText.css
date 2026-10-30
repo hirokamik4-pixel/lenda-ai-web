@@ -1,0 +1,145 @@
+/* Formatted AI replies */
+
+.msg__bubble.msg__bubble--rich {
+  white-space: normal;
+}
+
+.rich {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  line-height: 1.55;
+}
+
+.rich__p,
+.rich__h {
+  margin: 0;
+}
+
+.rich__h {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.rich__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.3em;
+}
+
+ul.rich__list {
+  list-style-type: disc;
+}
+
+ol.rich__list {
+  list-style-type: decimal;
+}
+
+.rich__list li::marker {
+  color: var(--accent);
+}
+
+.rich code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* Clickable links */
+.rich a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.rich a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.rich a.rich__cite {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 0.78em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: 0.12em;
+}
+
+/* Sources under a reply */
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sources__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sources__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sources__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.78rem;
+  text-decoration: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.sources__link:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sources__num {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.sources__text {
+  min-width: 0;
+  max-width: 240px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.msg__notice {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Mode emoji in the chat history list */
+.history__emoji {
+  margin-right: 8px;
+}

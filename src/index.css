@@ -1,0 +1,145 @@
+/* ------------------------------------------------------------------
+   LENDA AI: global styles, theme variables and base rules.
+   The active mode is set on <html data-mode="study|normal|funny">.
+   ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: dark;
+
+  --font-body: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
+  /* NORMAL mode (default) */
+  --font-heading: var(--font-body);
+  --radius: 16px;
+  --bg: #0a0c11;
+  --bg-glow: rgba(108, 140, 255, 0.14);
+  --surface: #12151d;
+  --surface-2: #1a1e29;
+  --border: #232836;
+  --text: #eceef4;
+  --text-muted: #8b93a7;
+  --accent: #6c8cff;
+  --accent-2: #4fd1c5;
+  --accent-soft: rgba(108, 140, 255, 0.14);
+  --on-accent: #0a0c11;
+  --user-bubble: #2a3560;
+  --on-user: #f1f4ff;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --lines: none;
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* STUDY mode: warm, book-inspired */
+:root[data-mode='study'] {
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --radius: 12px;
+  --bg: #14100b;
+  --bg-glow: rgba(224, 176, 97, 0.12);
+  --surface: #1d1710;
+  --surface-2: #272016;
+  --border: #3a2f20;
+  --text: #f3e9d6;
+  --text-muted: #a8987d;
+  --accent: #e0b061;
+  --accent-2: #c76f4b;
+  --accent-soft: rgba(224, 176, 97, 0.14);
+  --on-accent: #1a1209;
+  --user-bubble: #4a3517;
+  --on-user: #fbf1dc;
+  --lines: repeating-linear-gradient(
+    transparent 0 31px,
+    rgba(224, 176, 97, 0.05) 31px 32px
+  );
+}
+
+/* FUNNY mode: playful, vivid */
+:root[data-mode='funny'] {
+  --font-heading: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --radius: 22px;
+  --bg: #130a1f;
+  --bg-glow: rgba(255, 95, 162, 0.16);
+  --surface: #1d1230;
+  --surface-2: #281943;
+  --border: #3b2760;
+  --text: #fbf1ff;
+  --text-muted: #b7a3d4;
+  --accent: #ff5fa2;
+  --accent-2: #ffd23f;
+  --accent-soft: rgba(255, 95, 162, 0.16);
+  --on-accent: #1a0a14;
+  --user-bubble: #7a2a5f;
+  --on-user: #fff0f8;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.4s ease;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Thin, themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
