@@ -1,17 +1,57 @@
 import type { ReactNode } from 'react'
 import type { Source } from './api'
+import CodeBlock from './CodeBlock'
 import { safeUrl } from './links'
 import './RichText.css'
 
-/* A tiny, safe formatter for AI replies. It understands **bold**, `code`,
-   [links](https://...), plain https:// links, [1] citations, "- " bullets,
-   "1. " numbered lists and "## " headings. It never uses
+/* A tiny, safe formatter for AI replies. It understands code blocks,
+   **bold**, `code`, [links](https://...), plain https:// links, [1] citations,
+   "- " bullets, "1. " numbered lists and "## " headings. It never uses
    dangerouslySetInnerHTML, so AI text cannot inject HTML. */
 
 type Block =
   | { kind: 'p'; lines: string[] }
   | { kind: 'h'; text: string }
   | { kind: 'list'; ordered: boolean; items: string[] }
+
+type Segment =
+  | { kind: 'text'; text: string }
+  | { kind: 'code'; lang: string; code: string }
+
+// Splits a reply into normal text and ``` fenced code blocks.
+function splitFences(source: string): Segment[] {
+  const segments: Segment[] = []
+  let buffer: string[] = []
+  let inCode = false
+  let lang = ''
+
+  for (const line of source.split('\n')) {
+    const fence = line.match(/^\s*```+\s*([\w+#.-]*)\s*$/)
+    if (fence) {
+      if (!inCode) {
+        if (buffer.length > 0) segments.push({ kind: 'text', text: buffer.join('\n') })
+        buffer = []
+        inCode = true
+        lang = (fence[1] ?? '').toLowerCase()
+      } else {
+        segments.push({ kind: 'code', lang, code: buffer.join('\n').replace(/\n+$/, '') })
+        buffer = []
+        inCode = false
+        lang = ''
+      }
+      continue
+    }
+    buffer.push(line)
+  }
+
+  if (inCode) {
+    // The reply ended before the closing fence (for example it was cut off).
+    segments.push({ kind: 'code', lang, code: buffer.join('\n').replace(/\n+$/, '') })
+  } else if (buffer.length > 0) {
+    segments.push({ kind: 'text', text: buffer.join('\n') })
+  }
+  return segments
+}
 
 // Cleans the most common LaTeX leftovers into readable symbols.
 function tidyMath(s: string): string {
@@ -157,15 +197,10 @@ function renderInline(text: string, sources: Source[]): ReactNode[] {
   })
 }
 
-interface RichTextProps {
-  text: string
-  sources?: Source[]
-}
-
-export default function RichText({ text, sources = [] }: RichTextProps) {
+function TextBlocks({ text, sources }: { text: string; sources: Source[] }) {
   const blocks = parseBlocks(text)
   return (
-    <div className="rich">
+    <>
       {blocks.map((block, i) => {
         if (block.kind === 'h') {
           return (
@@ -195,6 +230,26 @@ export default function RichText({ text, sources = [] }: RichTextProps) {
           </p>
         )
       })}
+    </>
+  )
+}
+
+interface RichTextProps {
+  text: string
+  sources?: Source[]
+}
+
+export default function RichText({ text, sources = [] }: RichTextProps) {
+  const segments = splitFences(text)
+  return (
+    <div className="rich">
+      {segments.map((segment, i) =>
+        segment.kind === 'code' ? (
+          <CodeBlock key={i} lang={segment.lang} code={segment.code} />
+        ) : (
+          <TextBlocks key={i} text={segment.text} sources={sources} />
+        ),
+      )}
     </div>
   )
 }

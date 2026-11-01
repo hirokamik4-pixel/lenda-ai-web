@@ -110,7 +110,7 @@ const MODE_CONFIG: Record<Mode, ModeConfig> = {
     Icon: MessageCircle,
     heading: 'How can I help today? ✨',
     tagline: 'A balanced assistant. It can search the web for current info and generate images.',
-    placeholder: 'Message LENDA AI…',
+    placeholder: 'Message Axion…',
     suggestions: [
       '🌦️ What is the weather in Delhi today?',
       '🎨 Generate an image of a robot reading a book',
@@ -147,7 +147,7 @@ const STORAGE_KEY = 'lenda-ai:v1'
 const SEED_CONVERSATIONS: Conversation[] = [
   {
     id: FIRST_ID,
-    title: 'Welcome to LENDA AI',
+    title: 'Welcome to Axion',
     mode: 'normal',
     messages: [
       {
@@ -156,7 +156,7 @@ const SEED_CONVERSATIONS: Conversation[] = [
         mode: 'normal',
         label: 'Welcome message',
         skipAi: true,
-        text: '👋 Welcome to LENDA AI, created by Ayush! Ask me anything. I can search the web for current things like weather and news, generate images ("generate an image of ..."), listen with the 🎤 mic, and read answers aloud. Each mode has its own chats, and your history is on the left.',
+        text: '👋 Welcome to Axion, built by Ayush and Frank! Ask me anything. I can search the web for current things like weather and news, generate images ("generate an image of ..."), listen with the 🎤 mic, and read answers aloud. Each mode has its own chats, and your history is on the left.',
       },
     ],
   },
@@ -281,7 +281,7 @@ function Sidebar({
             <span className="brand__mark" aria-hidden="true">
               <Sparkles size={16} />
             </span>
-            <span className="brand__name">LENDA AI</span>
+            <span className="brand__name">Axion</span>
           </div>
           <button
             type="button"
@@ -344,7 +344,7 @@ function Sidebar({
 
         <div className="sidebar__footer">
           <p>Chats are saved in this browser only</p>
-          <p>Created by Ayush</p>
+          <p>Built by Ayush and Frank</p>
         </div>
       </div>
     </motion.aside>
@@ -532,7 +532,7 @@ function TypingIndicator() {
         <Sparkles size={16} />
       </span>
       <div className="msg__body">
-        <div className="msg__bubble typing" role="status" aria-label="LENDA AI is thinking">
+        <div className="msg__bubble typing" role="status" aria-label="Axion is thinking">
           {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
@@ -858,7 +858,7 @@ function App() {
           id: makeId(),
           role: 'assistant',
           mode: replyMode,
-          label: 'LENDA AI',
+          label: 'Axion',
           skipAi: true,
           text: '🧠 Quizzes live in Study mode. Tap 📚 Study in the top bar (it opens a Study chat), then ask again!',
         })
@@ -867,7 +867,7 @@ function App() {
           id: makeId(),
           role: 'assistant',
           mode: replyMode,
-          label: 'LENDA AI · Study mode',
+          label: 'Axion · Study mode',
           skipAi: true,
           text: '🧠 Set up your quiz below: pick any topic and 5 to 30 questions. The AI writes the questions, so double-check anything important.',
           quiz: { topic: extractTopic(trimmed), count: extractCount(trimmed) },
@@ -979,7 +979,7 @@ function App() {
             >
               {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
             </button>
-            <h1 className="topbar__title">{active?.title ?? 'LENDA AI'}</h1>
+            <h1 className="topbar__title">{active?.title ?? 'Axion'}</h1>
             <ModeSwitcher mode={mode} onChange={changeMode} />
           </header>
 

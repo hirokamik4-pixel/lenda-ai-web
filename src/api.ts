@@ -1,6 +1,6 @@
 import type { QuizQuestion } from './quizData'
 
-// Where the LENDA AI server lives. Locally this is your own computer.
+// Where the Axion server lives. Locally this is your own computer.
 // When published, VITE_API_URL is set to the public server address.
 const configured = import.meta.env.VITE_API_URL as string | undefined
 const API_URL = (configured || 'http://localhost:8787').replace(/\/+$/, '')
@@ -31,7 +31,7 @@ export interface QuizResponse {
 }
 
 const SERVER_DOWN =
-  'Cannot reach the LENDA AI server. It may be waking up (this can take up to a minute), so please try again shortly.'
+  'Cannot reach the Axion server. It may be waking up (this can take up to a minute), so please try again shortly.'
 
 async function post<T>(path: string, body: unknown, timeoutMs: number): Promise<T> {
   const controller = new AbortController()

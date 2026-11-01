@@ -157,7 +157,7 @@ export default function SettingsPanel({
         )}
         <p className="settings__desc">
           Voice input sends your audio to your browser&apos;s own speech service, so it needs
-          internet. The LENDA AI server only receives the text.
+          internet. The Axion server only receives the text.
         </p>
 
         <h3 className="settings__section">🎨 Look</h3>
@@ -201,7 +201,7 @@ export default function SettingsPanel({
           )}
         </div>
 
-        <p className="settings__about">LENDA AI · created by Ayush</p>
+        <p className="settings__about">Axion · built by Ayush and Frank</p>
       </motion.div>
     </motion.div>
   )

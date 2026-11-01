@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import type { CSSProperties } from 'react'
+import GalaxyBackground from './GalaxyBackground'
 import './ThemeBackground.css'
 
 type Mode = 'study' | 'normal' | 'funny'
@@ -109,21 +110,24 @@ function FunnyExtras() {
 
 export default function ThemeBackground({ mode }: { mode: Mode }) {
   return (
-    <AnimatePresence>
-      <motion.div
-        key={mode}
-        className={`bg bg--${mode}`}
-        aria-hidden="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.7 }}
-      >
-        {mode === 'study' && <StudyExtras />}
-        {mode === 'normal' && <NormalExtras />}
-        {mode === 'funny' && <FunnyExtras />}
-        <Floaters mode={mode} />
-      </motion.div>
-    </AnimatePresence>
+    <>
+      <GalaxyBackground mode={mode} />
+      <AnimatePresence>
+        <motion.div
+          key={mode}
+          className={`bg bg--${mode}`}
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.7 }}
+        >
+          {mode === 'study' && <StudyExtras />}
+          {mode === 'normal' && <NormalExtras />}
+          {mode === 'funny' && <FunnyExtras />}
+          <Floaters mode={mode} />
+        </motion.div>
+      </AnimatePresence>
+    </>
   )
 }

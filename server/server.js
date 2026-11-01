@@ -1,16 +1,23 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { registerBuilder } from './builder.js'
+import {
+  describeChains,
+  describeLlmError,
+  hasLlmKey,
+  llmFetch,
+  startModelDiscovery,
+} from './llm.js'
 
 const PORT = Number(process.env.PORT) || 8787
-const API_KEY = process.env.GROQ_API_KEY
-const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 const TAVILY_KEY = process.env.TAVILY_API_KEY
 const IMAGE_KEY = process.env.POLLINATIONS_API_KEY
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+const CF_ACCOUNT = process.env.CF_ACCOUNT_ID
+const CF_TOKEN = process.env.CF_API_TOKEN
 
 // Websites allowed to use this server, comma separated, for example:
-// ALLOWED_ORIGINS=https://lenda-ai.onrender.com
+// ALLOWED_ORIGINS=https://my-site.onrender.com
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((s) => s.trim().replace(/\/+$/, ''))
@@ -23,15 +30,14 @@ const MAX_QUESTIONS = 30
 /* Personality                                                         */
 /* ------------------------------------------------------------------ */
 
-const IDENTITY = `You are LENDA AI, an AI assistant app.
-LENDA AI was created by Ayush. LENDA AI is owned by three people: Frank, Ayush and Yash.
-If the user asks who owns LENDA AI, or who the owners, founders, team or company behind it are, answer with exactly these three names as a short list:
+const IDENTITY = `You are Axion, an AI assistant app.
+Axion was built by two people, Ayush and Frank, together. Axion is owned by Frank and Ayush.
+If the user asks who owns Axion, or who the owners, founders, team or company behind it are, answer with exactly these two names as a short list:
 - Frank
 - Ayush
-- Yash
-If the user asks who created or built LENDA AI, say that Ayush created it, and mention that the owners are Frank, Ayush and Yash.
+If the user asks who created or built Axion, say that it was built by Ayush and Frank together.
 Do not invent any other details about these people, such as job titles, ages, locations or biographies. If asked for more about them, say you only know their names.
-Be honest about how you work: LENDA AI runs on a third-party language model that it reaches through an API. Ayush built the LENDA AI app but did not train that underlying model, and you must never claim otherwise.
+Be honest about how you work: Axion runs on a third-party language model that it reaches through an API. Ayush and Frank built the Axion app but did not train that underlying model, and you must never claim otherwise.
 Never claim to be human.`
 
 const STYLE = `Writing style:
@@ -39,8 +45,9 @@ const STYLE = `Writing style:
 - Put the direct answer first, then explain.
 - Do NOT use tables. Do NOT use LaTeX. Write maths in plain text, for example √2, 5/(√2 + √3), x², 12 × 15.
 - You may use **bold** for key terms, "- " bullet lists, numbered lists like "1. ", and short headings that start with "## ".
+- Code rules: whenever you write code, commands or file contents, put them inside a fenced code block that starts with three backticks followed by the language name (for example \`\`\`html, \`\`\`python or \`\`\`powershell) and ends with three backticks on their own line. Never write code outside a fenced block. Use one block per file.
 - When you use web search results, cite them with numbers like [1] and [2]. The app shows the source list, so do not paste long raw links. If you do share a link, write the full https:// address.
-- Keep answers short, under about 200 words, unless the user asks for more detail.`
+- Keep answers short, under about 200 words, unless the user asks for more detail or for code.`
 
 const MODE_PROMPTS = {
   normal:
@@ -189,53 +196,36 @@ function formatResults(results) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Groq helpers                                                        */
+/* AI helpers (model fallback lives in llm.js)                         */
 /* ------------------------------------------------------------------ */
 
-// Returns the whole reply message (it may contain a tool request).
-async function callGroqMessage({ messages, temperature, maxTokens, json, tools }) {
-  const response = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
+// Returns { message, model }. The message may contain a tool request.
+async function callLlmMessage({ purpose = 'chat', messages, temperature, maxTokens, json, tools }) {
+  const { response, model } = await llmFetch(
+    purpose,
+    {
       messages,
       temperature,
       max_tokens: maxTokens,
       ...(json ? { response_format: { type: 'json_object' } } : {}),
       ...(tools ? { tools, tool_choice: 'auto' } : {}),
-    }),
-    signal: AbortSignal.timeout(80_000),
-  })
-
-  if (!response.ok) {
-    const detail = await response.text()
-    const error = new Error(`Groq returned ${response.status}: ${detail.slice(0, 300)}`)
-    error.status = response.status
-    throw error
-  }
-
+    },
+    AbortSignal.timeout(80_000),
+  )
   const data = await response.json()
-  return data.choices?.[0]?.message ?? {}
+  return { message: data.choices?.[0]?.message ?? {}, model }
 }
 
-// Returns just the text of the reply.
-async function callGroq(options) {
-  const message = await callGroqMessage(options)
-  return typeof message.content === 'string' ? message.content : ''
+// Returns { text, model }.
+async function callLlm(options) {
+  const { message, model } = await callLlmMessage(options)
+  return { text: typeof message.content === 'string' ? message.content : '', model }
 }
 
 function sendError(res, error) {
   console.error('AI error:', error.message)
-  if (error.status === 429) {
-    return res.status(429).json({
-      error: 'AI rate limit reached. Wait a minute and try again. The free daily limit may also be used up.',
-    })
-  }
-  return res.status(502).json({ error: 'The AI service had a problem. Check the server terminal for details.' })
+  const { status, message } = describeLlmError(error)
+  return res.status(status).json({ error: message })
 }
 
 /* ------------------------------------------------------------------ */
@@ -270,6 +260,61 @@ function cleanQuestion(q, index) {
     correctIndex: order.indexOf(correct),
     explanation: typeof q.explanation === 'string' ? q.explanation.trim() : '',
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Image generation                                                    */
+/* ------------------------------------------------------------------ */
+
+// Cloudflare FLUX.1 schnell: the main image generator.
+async function cloudflareImage(prompt, seed, signal) {
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CF_ACCOUNT)}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${CF_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, steps: 6, seed }),
+      signal,
+    },
+  )
+  if (!response.ok) {
+    const error = new Error(`Cloudflare returned ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+  const type = response.headers.get('content-type') ?? ''
+  if (type.startsWith('image/')) {
+    return { buffer: Buffer.from(await response.arrayBuffer()), type }
+  }
+  const data = await response.json()
+  const base64 = data?.result?.image
+  if (typeof base64 !== 'string' || !base64) throw new Error('Cloudflare returned no image')
+  return { buffer: Buffer.from(base64, 'base64'), type: 'image/jpeg' }
+}
+
+// Pollinations: the free backup.
+async function pollinationsImage(prompt, seed, signal) {
+  const params = new URLSearchParams({
+    width: '768',
+    height: '768',
+    seed: String(seed),
+    nologo: 'true',
+  })
+  let url
+  if (IMAGE_KEY) {
+    params.set('key', IMAGE_KEY)
+    url = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params}`
+  } else {
+    url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params}`
+  }
+  const upstream = await fetch(url, { signal })
+  const type = upstream.headers.get('content-type') ?? ''
+  if (!upstream.ok || !type.startsWith('image/')) {
+    const error = new Error(`Pollinations returned ${upstream.status} (${type})`)
+    error.status = upstream.status
+    throw error
+  }
+  return { buffer: Buffer.from(await upstream.arrayBuffer()), type }
 }
 
 /* ------------------------------------------------------------------ */
@@ -341,20 +386,24 @@ app.use(
     },
   }),
 )
+
+// Website builder (see builder.js). It must stay above the express.json line below.
+registerBuilder(app, { tavilyKey: TAVILY_KEY })
+
 app.use(express.json({ limit: '100kb' }))
 
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
-    hasKey: Boolean(API_KEY),
-    model: MODEL,
+    hasKey: hasLlmKey(),
+    models: describeChains(),
     webSearch: Boolean(TAVILY_KEY),
-    imageKey: Boolean(IMAGE_KEY),
+    images: CF_ACCOUNT && CF_TOKEN ? 'cloudflare' : 'pollinations',
   })
 })
 
 app.post('/api/chat', chatLimit, async (req, res) => {
-  if (!API_KEY) return res.status(503).json({ error: 'The server has no GROQ_API_KEY set.' })
+  if (!hasLlmKey()) return res.status(503).json({ error: 'The server has no GROQ_API_KEY set.' })
 
   const { mode, messages } = req.body ?? {}
   const modePrompt = MODE_PROMPTS[mode]
@@ -400,6 +449,7 @@ app.post('/api/chat', chatLimit, async (req, res) => {
   try {
     let query = '' // set when a web search should run
     let reply = '' // set when the AI already answered without searching
+    let usedModel = ''
 
     if (TAVILY_KEY && SEARCH_HINTS.test(lastUser)) {
       // Obvious "current info" question: search right away.
@@ -407,12 +457,13 @@ app.post('/api/chat', chatLimit, async (req, res) => {
     } else if (TAVILY_KEY) {
       // Let the AI decide whether it needs to search.
       try {
-        const message = await callGroqMessage({
+        const { message, model } = await callLlmMessage({
           messages: [{ role: 'system', content: buildSystem({ canUseTool: true }) }, ...history],
           temperature,
           maxTokens: 2048,
           tools: [SEARCH_TOOL],
         })
+        usedModel = model
         const call = (message.tool_calls ?? []).find((c) => c?.function?.name === 'web_search')
         if (call) {
           query = parseToolQuery(call.function?.arguments) || lastUser
@@ -443,7 +494,7 @@ app.post('/api/chat', chatLimit, async (req, res) => {
           console.error('Search error:', error.message)
         }
       }
-      reply = await callGroq({
+      const answer = await callLlm({
         messages: [
           {
             role: 'system',
@@ -454,11 +505,13 @@ app.post('/api/chat', chatLimit, async (req, res) => {
         temperature,
         maxTokens: 2048,
       })
+      reply = answer.text
+      usedModel = answer.model
     }
 
     res.json({
       reply,
-      model: MODEL,
+      model: usedModel,
       searched: results.length > 0,
       sources: results.map(({ title, url }) => ({ title, url })),
       searchError,
@@ -469,7 +522,7 @@ app.post('/api/chat', chatLimit, async (req, res) => {
 })
 
 app.post('/api/quiz', quizLimit, async (req, res) => {
-  if (!API_KEY) return res.status(503).json({ error: 'The server has no GROQ_API_KEY set.' })
+  if (!hasLlmKey()) return res.status(503).json({ error: 'The server has no GROQ_API_KEY set.' })
 
   const topic = typeof req.body?.topic === 'string' ? req.body.topic.trim().slice(0, 100) : ''
   if (!topic) return res.status(400).json({ error: 'Please provide a topic.' })
@@ -491,7 +544,7 @@ Reply with ONLY a JSON object in this shape:
 {"title": "short quiz title", "questions": [{"prompt": "...", "options": ["...", "...", "...", "..."], "correctIndex": 0, "explanation": "..."}]}`
 
   try {
-    const raw = await callGroq({
+    const { text: raw } = await callLlm({
       messages: [
         { role: 'system', content: 'You write accurate quizzes and reply with valid JSON only.' },
         { role: 'user', content: prompt },
@@ -525,7 +578,7 @@ Reply with ONLY a JSON object in this shape:
   }
 })
 
-/* Image generation: the server fetches the picture so any key stays private. */
+/* Image generation: the server fetches the picture so keys stay private. */
 app.get('/api/image', imageLimit, async (req, res) => {
   const prompt = typeof req.query.prompt === 'string' ? req.query.prompt.trim().slice(0, 500) : ''
   if (!prompt) return res.status(400).json({ error: 'Please describe the image you want.' })
@@ -533,46 +586,64 @@ app.get('/api/image', imageLimit, async (req, res) => {
   const seedNumber = Number.parseInt(String(req.query.seed ?? ''), 10)
   const seed = Number.isFinite(seedNumber) ? Math.abs(seedNumber) % 1_000_000 : 1
 
-  const params = new URLSearchParams({
-    width: '768',
-    height: '768',
-    seed: String(seed),
-    nologo: 'true',
-  })
-  let url
-  if (IMAGE_KEY) {
-    params.set('key', IMAGE_KEY)
-    url = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?${params}`
-  } else {
-    url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params}`
-  }
-
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 90_000)
+  const timer = setTimeout(() => controller.abort(), 100_000)
   res.on('close', () => {
     if (!res.writableEnded) controller.abort()
   })
 
   try {
-    const upstream = await fetch(url, { signal: controller.signal })
-    const type = upstream.headers.get('content-type') ?? ''
-    if (!upstream.ok || !type.startsWith('image/')) {
-      console.error(`Image error: upstream returned ${upstream.status} (${type})`)
-      let message = 'The image service could not make that image. Try different words.'
-      if (upstream.status === 429) {
-        message = 'The free image service is busy. Wait about 15 seconds and try again.'
-      } else if (upstream.status === 401 || upstream.status === 403) {
-        message = 'The image service wants an API key. Add POLLINATIONS_API_KEY to server/.env.'
+    let image = null
+    let provider = ''
+    let busy = false
+
+    if (CF_ACCOUNT && CF_TOKEN) {
+      try {
+        image = await cloudflareImage(
+          prompt,
+          seed,
+          AbortSignal.any([controller.signal, AbortSignal.timeout(45_000)]),
+        )
+        provider = 'Cloudflare FLUX'
+      } catch (error) {
+        console.error('Cloudflare image error:', error.message)
+        if (controller.signal.aborted) throw error
       }
-      return res.status(502).json({ error: message })
     }
 
-    const buffer = Buffer.from(await upstream.arrayBuffer())
-    if (buffer.length > 8 * 1024 * 1024) {
+    if (!image) {
+      try {
+        image = await pollinationsImage(
+          prompt,
+          seed,
+          AbortSignal.any([controller.signal, AbortSignal.timeout(60_000)]),
+        )
+        provider = 'Pollinations'
+      } catch (error) {
+        console.error('Pollinations image error:', error.message)
+        if (controller.signal.aborted) throw error
+        busy = error.status === 429
+      }
+    }
+
+    if (!image) {
+      return res.status(502).json({
+        error: busy
+          ? 'The free image services are busy. Wait about 15 seconds and try again.'
+          : 'Could not make that image. Try different words, or try again in a moment.',
+      })
+    }
+    if (image.buffer.length > 8 * 1024 * 1024) {
       return res.status(502).json({ error: 'The image was too large.' })
     }
-    res.set({ 'Content-Type': type, 'Cache-Control': 'private, max-age=86400' })
-    res.send(buffer)
+
+    console.log(`Image made by ${provider}`)
+    res.set({
+      'Content-Type': image.type,
+      'Cache-Control': 'private, max-age=86400',
+      'X-Image-Provider': provider,
+    })
+    res.send(image.buffer)
   } catch (error) {
     console.error('Image error:', error instanceof Error ? error.message : error)
     if (!res.headersSent) {
@@ -584,13 +655,22 @@ app.get('/api/image', imageLimit, async (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`LENDA AI server running on http://localhost:${PORT}`)
-  console.log(API_KEY ? `Groq key loaded. Model: ${MODEL}` : 'WARNING: GROQ_API_KEY is missing in server/.env')
+  console.log(`Axion server running on http://localhost:${PORT}`)
+  console.log(hasLlmKey() ? 'Groq key loaded.' : 'WARNING: GROQ_API_KEY is missing in server/.env')
   console.log(TAVILY_KEY ? 'Web search: ON (Tavily key loaded)' : 'Web search: OFF (no TAVILY_API_KEY)')
-  console.log(IMAGE_KEY ? 'Images: using your Pollinations key' : 'Images: using the free no-key endpoint')
+  console.log(
+    CF_ACCOUNT && CF_TOKEN
+      ? 'Images: Cloudflare FLUX (Pollinations as backup)'
+      : 'Images: free Pollinations only (add CF_ACCOUNT_ID and CF_API_TOKEN for better images)',
+  )
   console.log(
     ALLOWED_ORIGINS.length > 0
       ? `Allowed websites: ${ALLOWED_ORIGINS.join(', ')} (plus localhost)`
       : 'Allowed websites: localhost only (set ALLOWED_ORIGINS before publishing)',
   )
+  void startModelDiscovery().then(() => {
+    const chains = describeChains()
+    console.log(`Chat models, in order: ${chains.chat.join(' > ')}`)
+    console.log(`Build models, in order: ${chains.build.join(' > ')}`)
+  })
 })

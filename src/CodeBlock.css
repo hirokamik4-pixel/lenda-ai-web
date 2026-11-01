@@ -1,0 +1,122 @@
+.codeblock {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: rgba(4, 6, 18, 0.85);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.codeblock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.codeblock__lang {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.codeblock__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.codeblock__copy:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.codeblock__copy.is-copied {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+  color: #4ade80;
+}
+
+.codeblock__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.codeblock__pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  tab-size: 2;
+  text-align: left;
+  color: #d7dcff;
+}
+
+/* Stop the inline-code style from leaking into code blocks */
+.rich .codeblock code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Colours */
+.tok--comment {
+  color: #6f7ba8;
+  font-style: italic;
+}
+
+.tok--string {
+  color: #8fe3a1;
+}
+
+.tok--number {
+  color: #ffb86b;
+}
+
+.tok--keyword {
+  color: #ff7eb6;
+}
+
+.tok--function {
+  color: #7cc4ff;
+}
+
+.tok--tag {
+  color: #ff8a8a;
+}
+
+.tok--attr {
+  color: #ffd479;
+}
+
+.tok--prop {
+  color: #6fe7e0;
+}
+
+.tok--punct {
+  color: #9aa4d6;
+}

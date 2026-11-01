@@ -1,0 +1,199 @@
+/* ------------------------------------------------------------------
+   Axion: universe theme. Loaded after the other stylesheets, so it
+   re-skins them without changing any layout or feature.
+   ------------------------------------------------------------------ */
+
+.galaxy {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: galaxy-in 1.4s ease both;
+}
+
+@keyframes galaxy-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The galaxy replaces the old grid and CSS stars, and the soft blobs get calmer */
+.bg .grid,
+.bg .star {
+  display: none;
+}
+
+.bg .orb {
+  opacity: 0.18;
+}
+
+.bg .blob {
+  opacity: 0.22;
+}
+
+/* ---------- Cosmic colours for each mode ---------- */
+
+:root[data-mode='normal'] {
+  --bg: #04050f;
+  --bg-glow: rgba(110, 90, 255, 0.1);
+  --surface: rgba(12, 16, 38, 0.72);
+  --surface-2: rgba(22, 28, 62, 0.72);
+  --border: rgba(130, 150, 255, 0.22);
+  --text: #eef0ff;
+  --text-muted: #9aa3cf;
+  --accent: #7c9cff;
+  --accent-2: #b46cff;
+  --accent-soft: rgba(124, 156, 255, 0.18);
+  --on-accent: #050816;
+  --user-bubble: rgba(52, 70, 180, 0.85);
+  --on-user: #f3f5ff;
+}
+
+:root[data-mode='study'] {
+  --bg: #0a0705;
+  --bg-glow: rgba(240, 185, 94, 0.1);
+  --surface: rgba(28, 20, 12, 0.72);
+  --surface-2: rgba(42, 30, 18, 0.72);
+  --border: rgba(224, 176, 97, 0.26);
+  --text: #f6ead4;
+  --text-muted: #b3a283;
+  --accent: #f0b95e;
+  --accent-2: #ff7a59;
+  --accent-soft: rgba(240, 185, 94, 0.18);
+  --on-accent: #1a1006;
+  --user-bubble: rgba(120, 80, 30, 0.88);
+  --on-user: #fff3dc;
+}
+
+:root[data-mode='funny'] {
+  --bg: #0d0618;
+  --bg-glow: rgba(255, 95, 162, 0.12);
+  --surface: rgba(32, 14, 52, 0.72);
+  --surface-2: rgba(48, 22, 78, 0.72);
+  --border: rgba(255, 120, 200, 0.28);
+  --text: #fff0fb;
+  --text-muted: #c9a8e0;
+  --accent: #ff5fa2;
+  --accent-2: #ffd23f;
+  --accent-soft: rgba(255, 95, 162, 0.18);
+  --on-accent: #1a0a14;
+  --user-bubble: rgba(140, 40, 110, 0.88);
+  --on-user: #fff0f8;
+}
+
+/* ---------- Glass panels over the galaxy ---------- */
+
+.sidebar,
+.topbar,
+.composer,
+.chip,
+.quiz,
+.imagecard__frame,
+.msg--assistant .msg__bubble,
+.sources__link,
+.mode-switch {
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+.sidebar--drawer,
+.settings {
+  background: color-mix(in srgb, var(--bg) 92%, var(--accent));
+}
+
+/* ---------- Extra animation ---------- */
+
+.brand__mark {
+  animation: cosmic-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes cosmic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent);
+  }
+}
+
+.brand__name,
+.welcome__heading {
+  background: linear-gradient(90deg, var(--text), var(--accent), var(--accent-2), var(--text));
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: cosmic-shimmer 8s linear infinite;
+}
+
+@keyframes cosmic-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+.send-btn:not(:disabled) {
+  animation: cosmic-pulse 2.6s ease-in-out infinite;
+}
+
+.mode-switch__pill {
+  box-shadow: 0 0 18px var(--accent-soft);
+}
+
+.chip:hover {
+  box-shadow: 0 0 18px var(--accent-soft);
+}
+
+.composer:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 30px var(--accent-soft);
+}
+
+/* Two orbit rings around the big welcome emoji */
+.welcome__emoji-wrap {
+  position: relative;
+}
+
+.welcome__emoji-wrap::before,
+.welcome__emoji-wrap::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.welcome__emoji-wrap::before {
+  inset: -16px;
+  border: 1px dashed var(--accent);
+  opacity: 0.45;
+  animation: cosmic-spin 22s linear infinite;
+}
+
+.welcome__emoji-wrap::after {
+  inset: -30px;
+  border: 1px dotted var(--accent-2);
+  opacity: 0.3;
+  animation: cosmic-spin 36s linear infinite reverse;
+}
+
+@keyframes cosmic-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .galaxy,
+  .brand__mark,
+  .brand__name,
+  .welcome__heading,
+  .send-btn,
+  .welcome__emoji-wrap::before,
+  .welcome__emoji-wrap::after {
+    animation: none !important;
+  }
+}
