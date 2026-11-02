@@ -21,6 +21,7 @@ import {
   downloadWav,
   FILTER_PRESETS,
   hashSeed,
+  aiEnhance,
   makeMusicBuffer,
   makeServerImage,
   readImageFile,
@@ -33,9 +34,6 @@ import './AuraStudio.css'
 
 type StudioTab = 'edit' | 'reel' | 'music'
 type BusyKind = '' | 'bg' | 'boost' | 'enhance' | 'reimagine' | 'reel'
-
-const ENHANCE_PROMPT =
-  'Enhance this photo: sharper details, remove noise and blur, natural balanced colors and lighting. Keep the subject and composition exactly the same.'
 
 const REIMAGINE_DEFAULT = 'Reimagine this image in a dreamy cosmic style with glowing aura colors.'
 
@@ -111,16 +109,17 @@ export default function AuraStudio({ active }: { active: boolean }) {
         const blob = await boostImage(image.url)
         replaceImage(blob)
         setStatus('Boosted — sharper and more vivid, doubled in size.')
+      } else if (kind === 'enhance') {
+        setStatus('The AI is enhancing your photo — the neural model loads on first use…')
+        const blob = await aiEnhance(image.url)
+        replaceImage(blob)
+        setStatus('AI enhancement finished — neural 2× upscale, faithful to your photo.')
       } else {
         const dataUrl = await makeServerImage(image.url)
-        setStatus(kind === 'enhance' ? 'The Axion AI is enhancing your photo…' : 'The Axion AI is reimagining your photo…')
-        const blob = await fetchImageEdit(
-          dataUrl,
-          kind === 'enhance' ? ENHANCE_PROMPT : reimaginePrompt.trim() || REIMAGINE_DEFAULT,
-          kind === 'enhance' ? 0.45 : 0.6,
-        )
+        setStatus('The Axion AI is reimagining your photo…')
+        const blob = await fetchImageEdit(dataUrl, reimaginePrompt.trim() || REIMAGINE_DEFAULT, 0.6)
         replaceImage(blob)
-        setStatus(kind === 'enhance' ? 'AI enhancement finished.' : 'AI reimagining finished.')
+        setStatus('AI reimagining finished.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -333,7 +332,7 @@ export default function AuraStudio({ active }: { active: boolean }) {
                 <button type="button" className="aura-btn" disabled={!image || busy !== ''} onClick={() => void runEdit('enhance')}>
                   <Wand2 size={16} aria-hidden="true" />
                   AI enhance
-                  <small>Axion server AI</small>
+                  <small>Neural 2× upscale in your browser</small>
                 </button>
               </div>
 
@@ -347,6 +346,7 @@ export default function AuraStudio({ active }: { active: boolean }) {
                 <button type="button" className="aura-btn" disabled={!image || busy !== ''} onClick={() => void runEdit('reimagine')}>
                   <Wand2 size={16} aria-hidden="true" />
                   AI reimagine
+                  <small>Axion server AI</small>
                 </button>
               </div>
 

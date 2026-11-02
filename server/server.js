@@ -511,7 +511,7 @@ app.post('/api/image/edit', imageEditLimit, express.json({ limit: '4mb' }), asyn
       res.status(status).json({
         error:
           status === 429
-            ? 'The free image service is busy. Please wait a few seconds and try again.'
+            ? 'The free image service allows one edit every 45 seconds and is busy right now. Please wait about a minute and try again.'
             : status === 413
               ? 'That picture is too large to edit. Try a smaller one.'
               : status === 400

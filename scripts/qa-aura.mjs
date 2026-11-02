@@ -119,31 +119,9 @@ async function main() {
   const widthBefore = await page.$eval('.aura-preview', (el) => el.naturalWidth).catch(() => 0)
   check('uploaded image is the test photo (896px)', widthBefore === 896, `got ${widthBefore}`)
 
-  await clickText(page, '.aura-btn', 'Quick boost')
-  const boostStatus = await waitForText(page, '.aura-status', 'Boosted', 30000)
-  check('quick boost finishes', !!boostStatus, boostStatus?.slice(0, 80) ?? 'no status')
-  const widthAfter = await page.$eval('.aura-preview', (el) => el.naturalWidth).catch(() => 0)
-  check('boost doubles the size', widthAfter === widthBefore * 2, `got ${widthAfter}`)
-
-  await clickText(page, '.aura-filters button', 'Noir')
-  await sleep(400)
-  const filter = await page.$eval('.aura-preview', (el) => el.style.filter).catch(() => '')
-  check('Noir filter applies to the preview', filter.includes('grayscale'), filter)
-
-  await clickText(page, '.aura-btn', 'Download')
-  const png = await waitForFile(downloadsDir, /aura-edit.*\.png$/, 20000)
-  check('downloads the edited PNG', !!png && statSync(png).size > 10000, png ?? 'no file')
-
-  console.log('\n4. AI remove background (first run downloads the model)')
-  await clickText(page, '.aura-btn', 'Remove background')
-  const bgStatus = await waitForText(page, '.aura-status', 'Background removed', 300000)
-  check('background removed', !!bgStatus, bgStatus?.slice(0, 80) ?? 'no status')
-
-  console.log('\n5. AI enhance via the Axion server')
+  console.log('\n4. AI enhance (neural upscale in the browser)')
   await clickText(page, '.aura-btn', 'AI enhance')
-  // Locally the free image service cannot fetch the picture from the
-  // user's computer, so a clear error banner is the correct outcome here.
-  // On the live server the same button finishes with "AI enhancement finished".
+  // First use loads the neural model, so this can take a while.
   let enhanceOutcome = null
   const enhanceDeadline = Date.now() + 180000
   while (Date.now() < enhanceDeadline && !enhanceOutcome) {
@@ -160,13 +138,43 @@ async function main() {
     await sleep(800)
   }
   check(
-    'AI enhance runs (finished, or clear error while the server is local)',
-    enhanceOutcome?.kind === 'finished' || enhanceOutcome?.kind === 'error',
+    'AI enhance finishes',
+    enhanceOutcome?.kind === 'finished',
     enhanceOutcome ? `${enhanceOutcome.kind}: ${enhanceOutcome.text.slice(0, 100)}` : 'no status',
   )
   const enhanceFailedGracefully = enhanceOutcome?.kind === 'error'
+  if (enhanceOutcome?.kind === 'finished') {
+    const dims = await page.$eval('.aura-preview', (el) => ({
+      w: el.naturalWidth,
+      h: el.naturalHeight,
+    })).catch(() => ({ w: 0, h: 0 }))
+    const expected = 2 * Math.round(widthBefore * Math.min(1, 768 / Math.max(widthBefore, 1200)))
+    check('AI enhance upscales the photo 2x', dims.w === expected, `${widthBefore} -> ${dims.w} (expected ${expected})`)
+  }
 
-  console.log('\n6. Music tab')
+  console.log('\n5. Quick boost and filters')
+  const widthBeforeBoost = await page.$eval('.aura-preview', (el) => el.naturalWidth).catch(() => 0)
+  await clickText(page, '.aura-btn', 'Quick boost')
+  const boostStatus = await waitForText(page, '.aura-status', 'Boosted', 30000)
+  check('quick boost finishes', !!boostStatus, boostStatus?.slice(0, 80) ?? 'no status')
+  const widthAfter = await page.$eval('.aura-preview', (el) => el.naturalWidth).catch(() => 0)
+  check('boost doubles the size', widthAfter === widthBeforeBoost * 2, `got ${widthAfter}`)
+
+  await clickText(page, '.aura-filters button', 'Noir')
+  await sleep(400)
+  const filter = await page.$eval('.aura-preview', (el) => el.style.filter).catch(() => '')
+  check('Noir filter applies to the preview', filter.includes('grayscale'), filter)
+
+  await clickText(page, '.aura-btn', 'Download')
+  const png = await waitForFile(downloadsDir, /aura-edit.*\.png$/, 20000)
+  check('downloads the edited PNG', !!png && statSync(png).size > 10000, png ?? 'no file')
+
+  console.log('\n6. AI remove background (first run downloads the model)')
+  await clickText(page, '.aura-btn', 'Remove background')
+  const bgStatus = await waitForText(page, '.aura-status', 'Background removed', 300000)
+  check('background removed', !!bgStatus, bgStatus?.slice(0, 80) ?? 'no status')
+
+  console.log('\n7. Music tab')
   await clickText(page, '.aura-studio__tabs button', 'Music')
   await sleep(400)
   const promptInput = await page.$('.aura-field input')
@@ -184,7 +192,7 @@ async function main() {
   const wav = await waitForFile(downloadsDir, /aura-music.*\.wav$/, 20000)
   check('downloads a WAV file', !!wav && statSync(wav).size > 1_000_000, wav ?? 'no file')
 
-  console.log('\n7. Reel tab')
+  console.log('\n8. Reel tab')
   await clickText(page, '.aura-studio__tabs button', 'Reel')
   await sleep(400)
   await clickText(page, '.aura-btn', 'Make my reel')
@@ -194,7 +202,7 @@ async function main() {
   const webm = await waitForFile(downloadsDir, /aura-reel.*\.webm$/, 20000)
   check('downloads the reel video', !!webm && statSync(webm).size > 20000, webm ?? 'no file')
 
-  console.log('\n8. Console cleanliness')
+  console.log('\n9. Console cleanliness')
   let realErrors = consoleErrors.filter((e) => !/favicon|net::ERR/i.test(e))
   if (enhanceFailedGracefully) {
     // The expected local-only failure above logs one resource error in the console.

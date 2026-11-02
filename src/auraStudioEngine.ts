@@ -105,6 +105,34 @@ export async function makeServerImage(src: string): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.85)
 }
 
+/* AI Enhance: real neural 2x upscaling that runs in the browser, so the
+   result stays faithful to the photo. No server and no external keys. */
+export async function aiEnhance(src: string): Promise<Blob> {
+  const img = await loadImage(src)
+  const scale = Math.min(1, 768 / Math.max(img.naturalWidth, img.naturalHeight))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas is not available in this browser.')
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+  const [{ default: Upscaler }, tf, wasm] = await Promise.all([
+    import('upscaler'),
+    import('@tensorflow/tfjs'),
+    import('@tensorflow/tfjs-backend-wasm'),
+  ])
+  wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.11.0/dist/')
+  // The wasm backend is deterministic and works even where WebGL is unavailable.
+  const ok = await tf.setBackend('wasm')
+  if (!ok) throw new Error('The AI engine could not start in this browser.')
+  await tf.ready()
+  const upscaler = new Upscaler()
+  const result = await upscaler.upscale(canvas)
+  const url = result.startsWith('data:') ? result : `data:image/png;base64,${result}`
+  return (await fetch(url)).blob()
+}
+
 /* ------------------------------------------------------------------ */
 /* Generative music                                                     */
 /* ------------------------------------------------------------------ */
