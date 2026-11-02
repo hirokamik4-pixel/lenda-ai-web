@@ -58,9 +58,9 @@ async function postJson<T>(
   } catch (error) {
     if (signal.aborted) throw error
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('That took too long. Please try again.')
+      throw new Error('That took too long. Please try again.', { cause: error })
     }
-    if (error instanceof TypeError) throw new Error(SERVER_DOWN)
+    if (error instanceof TypeError) throw new Error(SERVER_DOWN, { cause: error })
     throw error
   } finally {
     window.clearTimeout(timer)
@@ -106,7 +106,7 @@ export async function streamBuild(
     })
   } catch (error) {
     if (signal.aborted) throw error
-    throw new Error(SERVER_DOWN)
+    throw new Error(SERVER_DOWN, { cause: error })
   }
 
   if (!response.ok || !response.body) {
@@ -143,7 +143,9 @@ export async function streamBuild(
   } catch (error) {
     if (signal.aborted) throw error
     if (error instanceof TypeError) {
-      throw new Error('The connection dropped while the site was being written. Please try again.')
+      throw new Error('The connection dropped while the site was being written. Please try again.', {
+        cause: error,
+      })
     }
     throw error
   }

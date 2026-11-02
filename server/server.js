@@ -318,6 +318,47 @@ async function pollinationsImage(prompt, seed, signal) {
 }
 
 /* ------------------------------------------------------------------ */
+/* AI image editing (img2img)                                          */
+/* ------------------------------------------------------------------ */
+
+// Cloudflare Workers AI is not available on this account, so edits go
+// through the free Pollinations img2img service. It reads the source
+// picture from a URL, so the server keeps the uploaded image in memory
+// under a random id for a few minutes and hands Pollinations its own
+// public address. The picture is deleted as soon as the edit finishes.
+
+const tmpImages = new Map() // id -> { buffer, type, expires }
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [id, entry] of tmpImages) {
+    if (entry.expires <= now) tmpImages.delete(id)
+  }
+}, 60_000).unref()
+
+async function pollinationsImageEdit(publicImageUrl, prompt, strength, seed, signal) {
+  const params = new URLSearchParams({
+    image: publicImageUrl,
+    strength: String(strength),
+    width: '512',
+    height: '512',
+    seed: String(seed),
+    nologo: 'true',
+  })
+  const upstream = await fetch(
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params}`,
+    { signal },
+  )
+  const type = upstream.headers.get('content-type') ?? ''
+  if (!upstream.ok || !type.startsWith('image/')) {
+    const error = new Error(`Pollinations returned ${upstream.status} (${type})`)
+    error.status = upstream.status
+    throw error
+  }
+  return { buffer: Buffer.from(await upstream.arrayBuffer()), type }
+}
+
+/* ------------------------------------------------------------------ */
 /* Rate limiting (per visitor, in memory)                              */
 /* ------------------------------------------------------------------ */
 
@@ -365,6 +406,11 @@ const imageLimit = rateLimit({
   max: 30,
   message: 'Too many images this hour. Please try again later.',
 })
+const imageEditLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 20,
+  message: 'Too many image edits this hour. Please try again later.',
+})
 
 /* ------------------------------------------------------------------ */
 /* App                                                                 */
@@ -389,6 +435,106 @@ app.use(
 
 // Website builder (see builder.js). It must stay above the express.json line below.
 registerBuilder(app, { tavilyKey: TAVILY_KEY })
+
+/* AI image editing: registered above the global 100kb JSON parser because
+   picture data URLs are larger. This route parses its own body. */
+app.post('/api/image/edit', imageEditLimit, express.json({ limit: '4mb' }), async (req, res) => {
+  const imageDataUrl = req.body?.image
+  if (typeof imageDataUrl !== 'string' || !/^data:image\//.test(imageDataUrl)) {
+    return res.status(400).json({ error: 'Please send the picture as a data URL.' })
+  }
+
+  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim().slice(0, 400) : ''
+  if (!prompt) return res.status(400).json({ error: 'Please describe the edit you want.' })
+
+  const strengthNumber = Number(req.body?.strength)
+  const strength = Number.isFinite(strengthNumber)
+    ? Math.min(0.85, Math.max(0.25, strengthNumber))
+    : 0.55
+  const seed = Math.floor(Math.random() * 1_000_000)
+
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(imageDataUrl)
+  if (!match) return res.status(400).json({ error: 'That picture could not be read. Try a different image.' })
+  const buffer = Buffer.from(match[2].replace(/\s/g, ''), 'base64')
+  if (buffer.length === 0 || buffer.length > 3 * 1024 * 1024) {
+    return res.status(413).json({ error: 'That picture is too large to edit. Try a smaller one.' })
+  }
+
+  const id = crypto.randomUUID()
+  tmpImages.set(id, { buffer, type: match[1], expires: Date.now() + 10 * 60_000 })
+  const host = req.get('host') ?? ''
+  const publicUrl = `${req.protocol}://${host}/api/image/tmp/${id}`
+
+  // Pollinations must download the picture from the internet. On a local or
+  // private server it cannot, and it would silently ignore the photo and
+  // return an unrelated image, so refuse instead of returning a wrong result.
+  if (/^localhost(:\d+)?$|^127\.|^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./i.test(host)) {
+    tmpImages.delete(id)
+    return res.status(503).json({
+      error:
+        'AI enhance needs the live Axion server: the free image service must download your photo from a public address. Please try it on the live site.',
+    })
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 100_000)
+  res.on('close', () => {
+    if (!res.writableEnded) controller.abort()
+  })
+
+  try {
+    const edited = await pollinationsImageEdit(
+      publicUrl,
+      prompt,
+      strength,
+      seed,
+      AbortSignal.any([controller.signal, AbortSignal.timeout(60_000)]),
+    )
+    if (edited.buffer.length > 8 * 1024 * 1024) {
+      return res.status(502).json({ error: 'The edited image was too large.' })
+    }
+    console.log(`Image edited (seed ${seed})`)
+    res.set({
+      'Content-Type': edited.type,
+      'Cache-Control': 'private, max-age=86400',
+    })
+    res.send(edited.buffer)
+  } catch (error) {
+    console.error('Image edit error:', error instanceof Error ? error.message : error)
+    if (!res.headersSent) {
+      const status =
+        error.status === 400 || error.status === 413
+          ? error.status
+          : error.status === 429 || error.status === 402
+            ? 429
+            : 504
+      res.status(status).json({
+        error:
+          status === 429
+            ? 'The free image service is busy. Please wait a few seconds and try again.'
+            : status === 413
+              ? 'That picture is too large to edit. Try a smaller one.'
+              : status === 400
+                ? 'That picture could not be read. Try a different image.'
+                : 'The AI took too long to edit the image. Please try again.',
+      })
+    }
+  } finally {
+    tmpImages.delete(id)
+    clearTimeout(timer)
+  }
+})
+
+/* Pollinations reads the source picture from this address (see above). */
+app.get('/api/image/tmp/:id', (req, res) => {
+  const entry = tmpImages.get(req.params.id)
+  if (!entry) return res.status(404).json({ error: 'This image is gone. Please upload it again.' })
+  res.set({
+    'Content-Type': entry.type,
+    'Cache-Control': 'private, no-store',
+  })
+  res.send(entry.buffer)
+})
 
 app.use(express.json({ limit: '100kb' }))
 

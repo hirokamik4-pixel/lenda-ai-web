@@ -2,9 +2,10 @@ import { useState } from 'react'
 import App from './App'
 import Builder from './Builder'
 import Tools from './ToolsPage'
+import AuraStudio from './AuraStudio'
 import './Root.css'
 
-type View = 'chat' | 'build' | 'tools'
+type View = 'chat' | 'build' | 'tools' | 'aura'
 
 export default function Root() {
   const [view, setView] = useState<View>('chat')
@@ -13,6 +14,7 @@ export default function Root() {
     chat: true,
     build: false,
     tools: false,
+    aura: false,
   })
 
   function show(next: View) {
@@ -49,6 +51,14 @@ export default function Root() {
           >
             🧰 Tools
           </button>
+          <button
+            type="button"
+            className={view === 'aura' ? 'is-on' : ''}
+            aria-pressed={view === 'aura'}
+            onClick={() => show('aura')}
+          >
+            ✨ Studio
+          </button>
         </div>
       </nav>
 
@@ -63,7 +73,12 @@ export default function Root() {
         )}
         {opened.tools && (
           <div className="shell__pane" hidden={view !== 'tools'}>
-            <Tools active={view === 'tools'} />
+            <Tools active={view === 'tools'} onOpenStudio={() => show('aura')} />
+          </div>
+        )}
+        {opened.aura && (
+          <div className="shell__pane" hidden={view !== 'aura'}>
+            <AuraStudio active={view === 'aura'} />
           </div>
         )}
       </div>

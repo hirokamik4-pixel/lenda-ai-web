@@ -4,7 +4,13 @@ import { safeUrl } from './links'
 import { TOOLS } from './toolsData'
 import './Tools.css'
 
-export default function Tools({ active }: { active: boolean }) {
+export default function Tools({
+  active,
+  onOpenStudio,
+}: {
+  active: boolean
+  onOpenStudio: () => void
+}) {
   return (
     <div className="tools">
       {active && <GalaxyBackground mode="normal" />}
@@ -14,6 +20,23 @@ export default function Tools({ active }: { active: boolean }) {
 
         <ul className="tools__grid">
           {TOOLS.map((tool) => {
+            if (tool.internal) {
+              return (
+                <li key={tool.id}>
+                  <button className="toolcard" type="button" onClick={onOpenStudio}>
+                    <span className="toolcard__emoji" aria-hidden="true">
+                      {tool.emoji}
+                    </span>
+                    <span className="toolcard__body">
+                      <span className="toolcard__name">{tool.name}</span>
+                      <span className="toolcard__desc">{tool.description}</span>
+                      <span className="toolcard__host">Built into Axion</span>
+                    </span>
+                    <span className="toolcard__open">Open</span>
+                  </button>
+                </li>
+              )
+            }
             const href = safeUrl(tool.url)
             if (!href) return null
             const host = new URL(href).hostname

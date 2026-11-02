@@ -170,6 +170,10 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function randomSeed(): number {
+  return Math.floor(Math.random() * 1_000_000)
+}
+
 function makeTitle(text: string): string {
   return text.length > 36 ? `${text.slice(0, 36).trimEnd()}…` : text
 }
@@ -887,7 +891,7 @@ function App() {
         text: '🎨 Here is your image. An AI image service made it, so it may not match your words perfectly. Use "New version" for another try.',
         image: {
           prompt: extractImagePrompt(trimmed),
-          seed: Math.floor(Math.random() * 1_000_000),
+          seed: randomSeed(),
         },
       })
       return

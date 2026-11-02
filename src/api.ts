@@ -50,10 +50,10 @@ async function post<T>(path: string, body: unknown, timeoutMs: number): Promise<
     return data as T
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('The AI took too long to answer. Please try again.')
+      throw new Error('The AI took too long to answer. Please try again.', { cause: error })
     }
     if (error instanceof TypeError) {
-      throw new Error(SERVER_DOWN)
+      throw new Error(SERVER_DOWN, { cause: error })
     }
     throw error
   } finally {
@@ -89,7 +89,7 @@ export async function fetchImage(
     response = await fetch(`${API_URL}/api/image?${params}`, { signal })
   } catch (error) {
     if (signal.aborted) throw error
-    throw new Error(SERVER_DOWN)
+    throw new Error(SERVER_DOWN, { cause: error })
   }
   if (!response.ok) {
     const data = await response.json().catch(() => null)

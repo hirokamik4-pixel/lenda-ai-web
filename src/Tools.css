@@ -63,6 +63,13 @@
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
+button.toolcard {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .toolcard:hover {
   border-color: var(--accent);
   transform: translateY(-3px);
