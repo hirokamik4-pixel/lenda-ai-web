@@ -502,6 +502,7 @@ app.post('/api/image/edit', imageEditLimit, express.json({ limit: '4mb' }), asyn
   } catch (error) {
     console.error('Image edit error:', error instanceof Error ? error.message : error)
     if (!res.headersSent) {
+      const upstream = typeof error.status === 'number' ? String(error.status) : 'unknown'
       const status =
         error.status === 400 || error.status === 413
           ? error.status
@@ -516,7 +517,7 @@ app.post('/api/image/edit', imageEditLimit, express.json({ limit: '4mb' }), asyn
               ? 'That picture is too large to edit. Try a smaller one.'
               : status === 400
                 ? 'That picture could not be read. Try a different image.'
-                : 'The AI took too long to edit the image. Please try again.',
+                : `The free image service could not edit this picture right now (service error ${upstream}). Please try again.`,
       })
     }
   } finally {
